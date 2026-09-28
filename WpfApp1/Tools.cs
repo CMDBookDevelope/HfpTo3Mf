@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.IO.Compression;
 using System.Numerics;
 using System.Text;
@@ -14,20 +14,6 @@ namespace WpfApp1
 
         private static string getModelInfo(string rawStl)
         {
-            string verticeTriangles = importBinary(rawStl);
-            return verticeTriangles;
-        }
-        private static byte[] ReadAllBytes(Stream stream)
-        {
-            using (var ms = new MemoryStream())
-            {
-                stream.CopyTo(ms);
-                return ms.ToArray();
-            }
-        }
-        private static string importBinary(string fileName)
-        {
-
             int vectorCount = 0;
             Dictionary<Vector3, int> Uniques = new Dictionary<Vector3, int>();
 
@@ -66,94 +52,91 @@ namespace WpfApp1
 
             try
             {
-                Object locker = new Object();
-                lock (locker)
+                using (BinaryReader br = new BinaryReader(File.Open(fileName, FileMode.Open)))
                 {
-                    using (BinaryReader br = new BinaryReader(File.Open(fileName, FileMode.Open)))
+                    byte[] header = br.ReadBytes(80);
+                    byte[] length = br.ReadBytes(4);
+                    int numberOfSurfaces = BitConverter.ToInt32(length, 0);
+                    System.Diagnostics.Debug.WriteLine(String.Format("Number of faces:{0}", numberOfSurfaces));
+
+                    byte[] full = ReadAllBytes(br.BaseStream);
+                    int surfCount = 0;
+                    while (surfCount < numberOfSurfaces)
                     {
-                        //int batchSize = 50;
-                        byte[] header = br.ReadBytes(80);
-                        byte[] length = br.ReadBytes(4);
-                        int numberOfSurfaces = BitConverter.ToInt32(length, 0);
-                        string headerInfo = Encoding.UTF8.GetString(header, 0, header.Length).Trim();
-                        System.Diagnostics.Debug.WriteLine(String.Format("Number of faces:{0}", numberOfSurfaces));
-
-                        //byte[] batch = br.ReadBytes(batchSize);
-                        byte[] full = ReadAllBytes(br.BaseStream);
-                        int surfCount = 0;
-                        while (/*batch != null && */surfCount < numberOfSurfaces)
+                        byte[] xComp = new byte[4];
+                        byte[] yComp = new byte[4];
+                        byte[] zComp = new byte[4];
+                        int offset = surfCount * 50;
+                        List<int> MyFace = new List<int>();
+                        for (int i = 1; i < 4; i++)
                         {
-                            byte[] xComp = new byte[4];
-                            byte[] yComp = new byte[4];
-                            byte[] zComp = new byte[4];
-                            int offset = surfCount * 50;
-                            List<int> MyFace = new List<int>();
-                            for (int i = 1; i < 4; i++)
+                            for (int k = 0; k < 12; k++)
                             {
-                                for (int k = 0; k < 12; k++)
-                                {
-                                    int index = (k + i * 12) + offset;
+                                int index = (k + i * 12) + offset;
 
-                                    if (k < 4)
-                                    {
-                                        xComp[k] = full[index];
-                                    }
-                                    else if (k < 8)
-                                    {
-                                        yComp[k - 4] = full[index];
-                                    }
-                                    else
-                                    {
-                                        zComp[k - 8] = full[index];
-                                    }
+                                if (k < 4)
+                                {
+                                    xComp[k] = full[index];
                                 }
-                                Vector3 vert = new Vector3();
-                                vert.X = BitConverter.ToSingle(xComp, 0);
-                                vert.Y = BitConverter.ToSingle(yComp, 0);
-                                vert.Z = BitConverter.ToSingle(zComp, 0);
-
-                                if (!Uniques.ContainsKey(vert))
+                                else if (k < 8)
                                 {
-                                    XmlElement vertexElem = docElem.CreateElement("vertex");
-                                    vertexElem.SetAttribute("x", vert.X.ToString());
-                                    vertexElem.SetAttribute("y", vert.Y.ToString());
-                                    vertexElem.SetAttribute("z", vert.Z.ToString());
-                                    verticesElem.AppendChild(vertexElem);
-                                    Uniques.Add(vert, vectorCount);
-                                    vectorCount++;
+                                    yComp[k - 4] = full[index];
                                 }
-
-                                MyFace.Add(Uniques[vert]);
-                                if (i == 3)
+                                else
                                 {
-                                    XmlElement triangleElem = docElem.CreateElement("triangle");
-                                    var v1 = MyFace[0];
-                                    var v2 = MyFace[1];
-                                    var v3 = MyFace[2];
-                                    triangleElem.SetAttribute("v1", v1.ToString());
-                                    triangleElem.SetAttribute("v2", v2.ToString());
-                                    triangleElem.SetAttribute("v3", v3.ToString());
-                                    trianglesElem.AppendChild(triangleElem);
+                                    zComp[k - 8] = full[index];
                                 }
                             }
-                            surfCount++;
-                            //batch = br.ReadBytes(batchSize);
+                            Vector3 vert = new Vector3();
+                            vert.X = BitConverter.ToSingle(xComp, 0);
+                            vert.Y = BitConverter.ToSingle(yComp, 0);
+                            vert.Z = BitConverter.ToSingle(zComp, 0);
+
+                            if (!Uniques.ContainsKey(vert))
+                            {
+                                XmlElement vertexElem = docElem.CreateElement("vertex");
+                                vertexElem.SetAttribute("x", vert.X.ToString());
+                                vertexElem.SetAttribute("y", vert.Y.ToString());
+                                vertexElem.SetAttribute("z", vert.Z.ToString());
+                                verticesElem.AppendChild(vertexElem);
+                                Uniques.Add(vert, vectorCount);
+                                vectorCount++;
+                            }
+
+                            MyFace.Add(Uniques[vert]);
+                            if (i == 3)
+                            {
+                                XmlElement triangleElem = docElem.CreateElement("triangle");
+                                var v1 = MyFace[0];
+                                var v2 = MyFace[1];
+                                var v3 = MyFace[2];
+                                triangleElem.SetAttribute("v1", v1.ToString());
+                                triangleElem.SetAttribute("v2", v2.ToString());
+                                triangleElem.SetAttribute("v3", v3.ToString());
+                                trianglesElem.AppendChild(triangleElem);
+                            }
                         }
+                        surfCount++;
                     }
-
-
-                    docElem.PreserveWhitespace = true;
-                    return docElem.OuterXml;
                 }
-
+                docElem.PreserveWhitespace = true;
+                return docElem.OuterXml;
             }
-            catch (Exception e)  // This is too general to be the only catch statement.
+            catch (Exception e)
             {
                 System.Diagnostics.Debug.WriteLine("The file could not be read:");
                 System.Diagnostics.Debug.WriteLine(e.Message);
                 return "";
-
             }
+        }
+        private static byte[] ReadAllBytes(Stream stream)
+        {
+            using (var ms = new MemoryStream())
+            {
+                stream.CopyTo(ms);
+                return ms.ToArray();
+            }
+            return Array.Empty<byte>();
         }
         private static XmlElement createMeta(XmlDocument docElem, string name, string text)
         {
@@ -167,7 +150,8 @@ namespace WpfApp1
         private static void AddToArchive(ZipArchive archive, string archivePath, string xml)
         {
             ZipArchiveEntry modelEntry = archive.CreateEntry(archivePath);
-            using (StreamWriter writer = new StreamWriter(modelEntry.Open()))
+            // Important: use UTF‑8 NO‑BOM for 3MF xml files
+            using (StreamWriter writer = new StreamWriter(modelEntry.Open(), new UTF8Encoding(false)))
             {
                 writer.Write(xml);
             }
@@ -207,20 +191,25 @@ namespace WpfApp1
             return cutXml;
         }
 
-        public static async void CreatePackage(string inputFile)
+        public static void CreatePackage(string inputFile)
         {
             JObject HfpData = JObject.Parse(File.ReadAllText(inputFile));
             string Folder = inputFile;
-            if (inputFile.LastIndexOf("\\") > 0)
-                Folder = inputFile.Substring(0,inputFile.LastIndexOf("\\")+1);
-            else if (inputFile.LastIndexOf("/") > 0)
-                Folder = inputFile.Substring(0, inputFile.LastIndexOf("/") + 1);
+            int lastSlash1 = inputFile.LastIndexOf("\\");
+            int lastSlash2 = inputFile.LastIndexOf("/");
+            int lastSlash = Math.Max(lastSlash1, lastSlash2);
+            if (lastSlash > 0)
+                Folder = inputFile.Substring(0, lastSlash + 1);
+            else
+                Folder = "";
+
             string stlOrig = HfpData["stl"].Value<string>();
-            if (stlOrig.LastIndexOf("\\") > 0)
-                stlOrig = stlOrig.Substring(stlOrig.LastIndexOf("\\") + 1);
-            else if (stlOrig.LastIndexOf("/") > 0)
-                stlOrig = stlOrig.Substring(stlOrig.LastIndexOf("/") + 1);
-            //string outputPath = inputFile.Replace("hfp", "3mf");
+            int stlSlash1 = stlOrig.LastIndexOf("\\");
+            int stlSlash2 = stlOrig.LastIndexOf("/");
+            int stlSlash = Math.Max(stlSlash1, stlSlash2);
+            if (stlSlash >= 0)
+                stlOrig = stlOrig.Substring(stlSlash + 1);
+
             string outputPath = inputFile.Replace(".hfp", "_BBL.3mf");
             var stlName = Folder + stlOrig;
             var bblXml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n" +
@@ -306,7 +295,8 @@ namespace WpfApp1
 
             using (FileStream zipToOpen = new FileStream(outputPath, FileMode.Create))
             {
-                using (ZipArchive archive = new ZipArchive(zipToOpen, ZipArchiveMode.Update))
+                // Fix crash bug: ZipArchiveMode.Create instead of Update
+                using (ZipArchive archive = new ZipArchive(zipToOpen, ZipArchiveMode.Create))
                 {
                     AddToArchive(archive, "3D/3dmodel.model", bblXml);
                     AddToArchive(archive, "3D/_rels/3dmodel.model.rels", modelRelXml);
