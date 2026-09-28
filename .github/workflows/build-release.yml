@@ -1,0 +1,74 @@
+name: Build and Auto Release when version changed
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  check-version-change:
+    runs-on: ubuntu-latest
+    outputs:
+      version_changed: ${{ steps.check.outputs.changed }}
+      new_version: ${{ steps.parsever.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check if HfpTo3mf.csproj modified
+        id: check
+        run: |
+          git diff --quiet HEAD^ HEAD -- WpfApp1/HfpTo3mf.csproj
+          if [ $? -eq 0 ]; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Parse FileVersion from csproj
+        id: parsever
+        run: |
+          VER=$(grep -o '<FileVersion>[^<]*</FileVersion>' WpfApp1/HfpTo3mf.csproj | sed -E 's/<\/?FileVersion>//g')
+          echo "version=$VER" >> $GITHUB_OUTPUT
+          echo "Parsed version: $VER"
+
+  build:
+    needs: check-version-change
+    if: ${{ needs.check-version-change.outputs.version_changed == 'true' }}
+    runs-on: windows-latest
+    env:
+      RELEASE_VERSION: ${{ needs.check-version-change.outputs.new_version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Restore nuget
+        run: nuget restore ./*.sln
+
+      - name: Build Release Any CPU
+        run: |
+          msbuild WpfApp1\HfpTo3mf.csproj /p:Configuration=Release /p:Platform="Any CPU"
+
+      - name: Zip binaries
+        shell: pwsh
+        run: |
+          $outDir = "WpfApp1\bin\Release"
+          $zipName = "HfpTo3mf-v$env:RELEASE_VERSION.zip"
+          Compress-Archive -Path "$outDir\*" -DestinationPath $zipName
+          echo "ZIP_FILE=$zipName" | Out-File -Append $env:GITHUB_ENV
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.RELEASE_VERSION }}
+          name: Release v${{ env.RELEASE_VERSION }}
+          files: |
+            ${{ env.ZIP_FILE }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
