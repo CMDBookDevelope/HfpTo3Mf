@@ -52,7 +52,7 @@ namespace WpfApp1
 
             try
             {
-                using (BinaryReader br = new BinaryReader(File.Open(fileName, FileMode.Open)))
+                using (BinaryReader br = new BinaryReader(File.Open(rawStl, FileMode.Open)))
                 {
                     byte[] header = br.ReadBytes(80);
                     byte[] length = br.ReadBytes(4);
