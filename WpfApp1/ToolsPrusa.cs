@@ -12,7 +12,7 @@ namespace WpfApp1
     public sealed partial class Tools
     {
         public static int maxSurfaces = 0;
-        private static async Task<string> getPrusaModelInfo(string rawStl)
+        private static string getPrusaModelInfo(string rawStl)
         {
             string verticeTriangles = importPrusaBinary(rawStl);
             return verticeTriangles;
@@ -166,32 +166,31 @@ namespace WpfApp1
             }
         }
 
-        private static async Task<string> getPrusaCuttingInfo(JObject HfpData, JArray Colors)
+        private static string getPrusaCuttingInfo(JObject HfpData, JArray Colors)
         {
             var layer_height = HfpData["layer_height"];
             var base_layer_height = HfpData["base_layer_height"];
-
-            string outputCut = "";
+            StringBuilder outputCut = new StringBuilder();
             int extruderCount = 1;
             var swapCount = 0;
             var maxSwaps = Colors.Count-1;
             foreach (JValue value in HfpData["slider_values"])
             {
-                if (swapCount < maxSwaps) { // weird color swap storage in hueforge
+                if (swapCount < maxSwaps)
+                {
                     var zHeight = (value.Value<double>()) * layer_height.Value<double>() + base_layer_height.Value<double>();
                     var colorhere = Colors[extruderCount];
-                    outputCut += "<code print_z=\"" + zHeight + "\" type=\"0\" extruder=\"1\" color=\"" + colorhere.Value<string>() + "\" extra=\"\" gcode=\"M600\"/>\r\n";
+                    outputCut.AppendFormat("<code print_z=\"{0}\" type=\"0\" extruder=\"1\" color=\"{1}\" extra=\"\" gcode=\"M600\" />\r\n",
+                        zHeight, colorhere.Value<string>());
                     extruderCount++;
                 }
                 swapCount++;
             }
-
             var cutXml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n" +
             "<custom_gcodes_per_print_z>\r\n" +
             outputCut +
-            "<mode value=\"SingleExtruder\"/>\r\n" +
+            "<mode value=\"SingleExtruder\" />\r\n" +
             "</custom_gcodes_per_print_z>\r\n";
-
             return cutXml;
         }
 
@@ -217,7 +216,7 @@ namespace WpfApp1
             "<Relationship Target=\"/3D/3dmodel.model\" Id=\"rel-1\" Type=\"http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel\" />" +
             "</Relationships>";
 
-            var stringMeshXml = await getPrusaModelInfo(stlName);
+            var stringMeshXml = getPrusaModelInfo(stlName);
 
             var sliceInfoXml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
                 "<config>" +
@@ -265,7 +264,7 @@ namespace WpfApp1
             " <Default Extension=\"png\" ContentType=\"image/png\"/>" +
             "</Types>";
 
-            string cutXml = await getPrusaCuttingInfo(HfpData, filament_set);
+            string cutXml = getPrusaCuttingInfo(HfpData, filament_set);
 
             using (FileStream zipToOpen = new FileStream(outputPath, FileMode.Create))
             {
