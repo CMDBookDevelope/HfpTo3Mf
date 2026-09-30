@@ -1,19 +1,10 @@
-﻿using System.Text;
+﻿using System;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace WpfApp1
 {
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
     public partial class MainWindow : Window
     {
         public MainWindow()
@@ -23,148 +14,158 @@ namespace WpfApp1
 
         private async void GeneratePrusa(object sender, RoutedEventArgs e)
         {
-            StartBambu.IsEnabled = false;
-            StartPrusa.IsEnabled = false;
-            StartBambuDrop.IsEnabled = false;
-            StartBambuDrop.IsEnabled = false;
-            StartBambuDrop.AllowDrop = false;
-            StartPrusaDrop.AllowDrop = false;
-            var dialog = new Microsoft.Win32.OpenFileDialog();
-            dialog.FileName = "Document"; // Default file name
-            dialog.DefaultExt = ".hfp"; // Default file extension
-            dialog.Filter = "Hueforge project (.hfp)|*.hfp"; // Filter files by extension
-            dialog.DefaultDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            // Show open file dialog box
-            bool? result = dialog.ShowDialog();
-
-            // Process open file dialog box results
-            if (result == true)
+            SetUiBusy(true);
+            try
             {
-                // Open document
-                string filename = dialog.FileName;
-                StatusLabel.Content = "Status : Generating .3mf for " + filename;                
-                await Task.Run(() =>
+                var dialog = new Microsoft.Win32.OpenFileDialog();
+                dialog.FileName = "Document";
+                dialog.DefaultExt = ".hfp";
+                dialog.Filter = "Hueforge project (.hfp)|*.hfp";
+                dialog.InitialDirectory = AppDomain.CurrentDomain.BaseDirectory;
+
+                bool? result = dialog.ShowDialog();
+                if (result == true)
                 {
-                    Tools.CreatePrusaPackage(filename);
-                });
-                StatusLabel.Content = "Status : Completed .3mf generation for " + filename;
+                    string filename = dialog.FileName;
+                    StatusLabel.Content = "Status : Generating .3mf for " + filename;
+                    await Task.Run(() =>
+                    {
+                        Tools.CreatePrusaPackage(filename);
+                    });
+                    StatusLabel.Content = "Status : Completed .3mf generation for " + filename;
+                }
+                else
+                    StatusLabel.Content = "Status : Idle";
             }
-            else
-                StatusLabel.Content = "Status : Idle";
-            StartBambu.IsEnabled = true;
-            StartPrusa.IsEnabled = true;
-            StartBambuDrop.IsEnabled = true;
-            StartBambuDrop.IsEnabled = true;
-            StartBambuDrop.AllowDrop = true;
-            StartPrusaDrop.AllowDrop = true;
+            catch (Exception ex)
+            {
+                StatusLabel.Content = $"Status : ERROR : {ex.Message}";
+                MessageBox.Show($"转换异常：{ex.Message}\n{ex.StackTrace}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                SetUiBusy(false);
+            }
         }
 
         private async void GenerateBBL(object sender, RoutedEventArgs e)
         {
-            StartBambu.IsEnabled = false;
-            StartPrusa.IsEnabled = false;
-            StartBambuDrop.IsEnabled = false;
-            StartBambuDrop.IsEnabled = false;
-            StartBambuDrop.AllowDrop = false;
-            StartPrusaDrop.AllowDrop = false;
-            var dialog = new Microsoft.Win32.OpenFileDialog();
-            dialog.FileName = "Document"; // Default file name
-            dialog.DefaultExt = ".hfp"; // Default file extension
-            dialog.Filter = "Hueforge project (.hfp)|*.hfp"; // Filter files by extension
-            dialog.DefaultDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            // Show open file dialog box
-            bool? result = dialog.ShowDialog();
-
-            // Process open file dialog box results
-            if (result == true)
+            SetUiBusy(true);
+            try
             {
-                // Open document
-                string filename = dialog.FileName;
-                StatusLabel.Content = "Status : Generating .3mf for " + filename;
-                await Task.Run(() =>
+                var dialog = new Microsoft.Win32.OpenFileDialog();
+                dialog.FileName = "Document";
+                dialog.DefaultExt = ".hfp";
+                dialog.Filter = "Hueforge project (.hfp)|*.hfp";
+                dialog.InitialDirectory = AppDomain.CurrentDomain.BaseDirectory;
+
+                bool? result = dialog.ShowDialog();
+                if (result == true)
                 {
-                    Tools.CreatePackage(filename);
-                });
-                StatusLabel.Content = "Status : Completed .3mf generation for " + filename;
+                    string filename = dialog.FileName;
+                    StatusLabel.Content = "Status : Generating .3mf for " + filename;
+                    await Task.Run(() =>
+                    {
+                        Tools.CreatePackage(filename);
+                    });
+                    StatusLabel.Content = "Status : Completed .3mf generation for " + filename;
+                }
+                else
+                    StatusLabel.Content = "Status : Idle";
             }
-            else
-                StatusLabel.Content = "Status : Idle";
-            StartBambu.IsEnabled = true;
-            StartPrusa.IsEnabled = true;
-            StartBambuDrop.IsEnabled = true;
-            StartBambuDrop.IsEnabled = true;
-            StartBambuDrop.AllowDrop = true;
-            StartPrusaDrop.AllowDrop = true;
+            catch (Exception ex)
+            {
+                StatusLabel.Content = $"Status : ERROR : {ex.Message}";
+                MessageBox.Show($"转换异常：{ex.Message}\n{ex.StackTrace}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                SetUiBusy(false);
+            }
         }
 
         private async void PrusaDrop_Drop(object sender, DragEventArgs e)
         {
             string[] fileList = (string[])e.Data.GetData(DataFormats.FileDrop, false);
+            SetUiBusy(true);
             int projectsCount = 0;
-            StartBambu.IsEnabled = false;
-            StartPrusa.IsEnabled = false;
-            StartBambuDrop.IsEnabled = false;
-            StartBambuDrop.IsEnabled = false;
-            StartBambuDrop.AllowDrop = false;
-            StartPrusaDrop.AllowDrop = false;
-            foreach (string filename in fileList)
+            try
             {
-                if (filename.EndsWith(".hfp")) {
-                    StatusLabel.Content = "Status : Generating .3mf for " + filename;
-                    await Task.Run(() =>
+                foreach (string filename in fileList)
+                {
+                    if (filename.EndsWith(".hfp"))
                     {
-                        Tools.CreatePrusaPackage(filename);
+                        StatusLabel.Content = "Status : Generating .3mf for " + filename;
+                        await Task.Run(() =>
+                        {
+                            Tools.CreatePrusaPackage(filename);
+                        });
                         projectsCount++;
-                    });
-                    StatusLabel.Content = "Status : Completed .3mf generation for " + filename;
+                        StatusLabel.Content = "Status : Completed .3mf generation for " + filename;
+                    }
+                    else
+                    {
+                        StatusLabel.Content = "Status : Skipped wrong file " + filename;
+                    }
                 }
-                else
-                    StatusLabel.Content = "Status : Skipped wrong file " + filename;
+                StatusLabel.Content = $"Status : Completed .3mf generation for {projectsCount} projects.";
             }
-            StatusLabel.Content = "Status : Completed .3mf generation for " + projectsCount + " projects.";
-
-            StartBambu.IsEnabled = true;
-            StartPrusa.IsEnabled = true;
-            StartBambuDrop.IsEnabled = true;
-            StartBambuDrop.IsEnabled = true;
-            StartBambuDrop.AllowDrop = true;
-            StartPrusaDrop.AllowDrop = true;
+            catch (Exception ex)
+            {
+                StatusLabel.Content = $"Status : ERROR : {ex.Message}";
+                MessageBox.Show($"转换异常：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                SetUiBusy(false);
+            }
         }
 
         private async void BBLDrop_Drop(object sender, DragEventArgs e)
         {
             string[] fileList = (string[])e.Data.GetData(DataFormats.FileDrop, false);
+            SetUiBusy(true);
             int projectsCount = 0;
-            StartBambu.IsEnabled = false;
-            StartPrusa.IsEnabled = false;
-            StartBambuDrop.IsEnabled = false;
-            StartBambuDrop.IsEnabled = false;
-            StartBambuDrop.AllowDrop = false;
-            StartPrusaDrop.AllowDrop = false;
-            foreach (string filename in fileList)
+            try
             {
-                if (filename.EndsWith(".hfp"))
+                foreach (string filename in fileList)
                 {
-                    StatusLabel.Content = "Status : Generating .3mf for " + filename;
-                    await Task.Run(() =>
+                    if (filename.EndsWith(".hfp"))
                     {
-
-                        Tools.CreatePackage(filename);
+                        StatusLabel.Content = "Status : Generating .3mf for " + filename;
+                        await Task.Run(() =>
+                        {
+                            Tools.CreatePackage(filename);
+                        });
                         projectsCount++;
-                    });
-                    StatusLabel.Content = "Status : Completed .3mf generation for " + filename;
+                        StatusLabel.Content = "Status : Completed .3mf generation for " + filename;
+                    }
+                    else
+                    {
+                        StatusLabel.Content = "Status : Skipped wrong file " + filename;
+                    }
                 }
-                else
-                    StatusLabel.Content = "Status : Skipped wrong file " + filename;
+                StatusLabel.Content = $"Status : Completed .3mf generation for {projectsCount} projects.";
             }
-            StatusLabel.Content = "Status : Completed .3mf generation for " + projectsCount + " projects.";
+            catch (Exception ex)
+            {
+                StatusLabel.Content = $"Status : ERROR : {ex.Message}";
+                MessageBox.Show($"转换异常：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                SetUiBusy(false);
+            }
+        }
 
-            StartBambu.IsEnabled = true;
-            StartPrusa.IsEnabled = true;
-            StartBambuDrop.IsEnabled = true;
-            StartBambuDrop.IsEnabled = true;
-            StartBambuDrop.AllowDrop = true;
-            StartPrusaDrop.AllowDrop = true;
+        /// <summary>统一设置界面忙碌状态，消除重复代码</summary>
+        void SetUiBusy(bool isBusy)
+        {
+            StartBambu.IsEnabled = !isBusy;
+            StartPrusa.IsEnabled = !isBusy;
+            StartBambuDrop.IsEnabled = !isBusy;
+            StartBambuDrop.AllowDrop = !isBusy;
+            StartPrusaDrop.AllowDrop = !isBusy;
         }
     }
 }

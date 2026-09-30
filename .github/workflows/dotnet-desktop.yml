@@ -1,0 +1,61 @@
+name: Build Wpf Release
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    env:
+      Solution_Name: HfpTo3mf.sln
+      Project_Path: WpfApp1\HfpTo3mf.csproj
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install .NET 8 SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+
+    - name: Restore dependencies
+      run: dotnet restore $env:Solution_Name
+
+    - name: Build Release
+      run: dotnet build $env:Project_Path --configuration Release
+
+    - name: Zip output binaries
+      shell: pwsh
+      run: |
+        $outDir = "WpfApp1\bin\Release"
+        $zipName = "HfpTo3mf-release.zip"
+        Compress-Archive -Path "$outDir\*" -DestinationPath $zipName
+        echo "ZIP_FILE=$zipName" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+    # push的时候上传artifacts；手动触发的时候既上传artifact又创建Release
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: HfpTo3mf-release
+        path: ${{ env.ZIP_FILE }}
+
+    - name: Create GitHub Release (Only manual run)
+      if: ${{ github.event_name == 'workflow_dispatch' }}
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v${{ github.sha }}
+        name: Manual Build ${{ github.sha }}
+        files: |
+          ${{ env.ZIP_FILE }}
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

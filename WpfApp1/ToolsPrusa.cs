@@ -195,7 +195,7 @@ namespace WpfApp1
             return cutXml;
         }
 
-        public static async void CreatePrusaPackage(string inputFile)
+        public static void CreatePrusaPackage(string inputFile)
         {
             JObject HfpData = JObject.Parse(File.ReadAllText(inputFile));
             string Folder = inputFile;
